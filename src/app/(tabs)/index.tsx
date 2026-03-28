@@ -1,31 +1,26 @@
 import { Stack } from "expo-router";
-import { Text, View, StyleSheet } from "react-native";
+import { StyleSheet, View } from "react-native";
+import BoatList from "../../components/BoatList";
+import PageHeader from "../../components/PageHeader";
 
 export default function HomeScreen() {
   return (
-    <>
-      <Stack.Screen options={{ title: "Home" }} />
-      <View style={styles.container}>
-        <Text style={styles.title}>Home</Text>
-        <Text style={styles.subtitle}>Your home dashboard will appear here.</Text>
+    <View style={styles.container}>
+      <Stack.Screen options={{ headerShown: false }} />
+      <PageHeader title="Home" />
+      <View style={styles.content}>
+        <BoatList />
       </View>
-    </>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: "700",
-  },
-  subtitle: {
-    fontSize: 16,
-    color: "#8E8E93",
+  content: {
+    flex: 1,
+    padding: 16,
   },
 });
