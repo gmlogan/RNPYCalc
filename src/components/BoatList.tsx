@@ -1,36 +1,83 @@
 import { FlatList, StyleSheet, Text, View } from "react-native";
 import { useBoats } from "../store/BoatsContext";
+import { formatTime, fromSeconds, toSeconds } from "../utils/time";
 
-function Header() {
+function ListHeader({ isLive }: { isLive: boolean }) {
   return (
     <View style={styles.headerRow}>
       <Text style={[styles.headerCell, styles.colName]}>Boat</Text>
       <Text style={[styles.headerCell, styles.colPY]}>PY</Text>
-      <Text style={[styles.headerCell, styles.colTime]}>Time</Text>
+      <Text style={[styles.headerCell, styles.colTime]}>
+        {isLive ? "Target" : "Time"}
+      </Text>
+    </View>
+  );
+}
+
+function BoatRow({
+  name, py, timeStr, isRef = false, alt = false,
+}: {
+  name: string; py: number; timeStr: string; isRef?: boolean; alt?: boolean;
+}) {
+  return (
+    <View style={[styles.row, alt && styles.rowAlt, isRef && styles.rowRef]}>
+      <Text style={[styles.cell, styles.colName, isRef && styles.cellRef]} numberOfLines={1}>
+        {name}
+      </Text>
+      <Text style={[styles.cell, styles.colPY, isRef && styles.cellRef]}>{py}</Text>
+      <Text style={[styles.cell, styles.colTime, isRef && styles.cellRef]}>{timeStr}</Text>
     </View>
   );
 }
 
 export default function BoatList() {
-  const { boats } = useBoats();
-  const visible = boats.filter((b) => b.visible);
+  const { boats, referenceBoat, elapsedTime } = useBoats();
+
+  const elapsedSecs = toSeconds(elapsedTime);
+  const refBoat = referenceBoat ? boats.find((b) => b.name === referenceBoat) : null;
+  const isLive = !!refBoat;
+
+  const others = boats
+    .filter((b) => b.visible && b.name !== referenceBoat)
+    .map((b) => ({
+      ...b,
+      targetSecs: isLive ? elapsedSecs * (b.py / refBoat!.py) : 0,
+    }))
+    .sort((a, b) => (isLive ? a.targetSecs - b.targetSecs : 0));
+
+  const refTimeStr = isLive
+    ? formatTime(fromSeconds(elapsedSecs))
+    : (refBoat?.time ?? "");
 
   return (
     <View style={styles.container}>
-      <Header />
+      <ListHeader isLive={isLive} />
+
+      {/* Sticky reference boat */}
+      {refBoat && (
+        <>
+          <BoatRow
+            name={refBoat.name}
+            py={refBoat.py}
+            timeStr={refTimeStr}
+            isRef
+          />
+          <View style={styles.refDivider} />
+        </>
+      )}
+
       <FlatList
-        data={visible}
+        data={others}
         keyExtractor={(item) => item.name}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.listContent}
         renderItem={({ item, index }) => (
-          <View style={[styles.row, index % 2 === 1 && styles.rowAlt]}>
-            <Text style={[styles.cell, styles.colName]} numberOfLines={1}>
-              {item.name}
-            </Text>
-            <Text style={[styles.cell, styles.colPY]}>{item.py}</Text>
-            <Text style={[styles.cell, styles.colTime]}>{item.time}</Text>
-          </View>
+          <BoatRow
+            name={item.name}
+            py={item.py}
+            timeStr={isLive ? formatTime(fromSeconds(item.targetSecs)) : item.time}
+            alt={index % 2 === 1}
+          />
         )}
       />
     </View>
@@ -77,9 +124,20 @@ const styles = StyleSheet.create({
   rowAlt: {
     backgroundColor: "rgba(0,0,0,0.02)",
   },
+  rowRef: {
+    backgroundColor: "rgba(0,122,255,0.08)",
+  },
+  refDivider: {
+    height: 3,
+    backgroundColor: "rgba(0,122,255,0.15)",
+  },
   cell: {
     fontSize: 15,
     color: "#1C1C1E",
+  },
+  cellRef: {
+    fontWeight: "600",
+    color: "#007AFF",
   },
   colName: {
     flex: 1,
@@ -95,7 +153,6 @@ const styles = StyleSheet.create({
     width: COL_TIME,
     textAlign: "right",
     fontVariant: ["tabular-nums"],
-    color: "#3C3C43",
   },
   listContent: {
     paddingBottom: 8,

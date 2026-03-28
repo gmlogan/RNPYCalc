@@ -1,9 +1,12 @@
 import { Stack } from "expo-router";
-import { ScrollView, StyleSheet, View } from "react-native";
-import TimeEntry from "../../components/TimeEntry";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import PageHeader from "../../components/PageHeader";
+import TimeEntry from "../../components/TimeEntry";
+import { useBoats } from "../../store/BoatsContext";
 
 export default function TimeScreen() {
+  const { elapsedTime, setElapsedTime, referenceBoat } = useBoats();
+
   return (
     <View style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
@@ -12,7 +15,15 @@ export default function TimeScreen() {
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
       >
-        <TimeEntry onChange={(v) => console.log(v)} />
+        {referenceBoat ? (
+          <Text style={styles.refLabel}>{referenceBoat}</Text>
+        ) : (
+          <Text style={styles.hintLabel}>Select a reference boat in Settings</Text>
+        )}
+        <TimeEntry
+          defaultValue={elapsedTime}
+          onChange={setElapsedTime}
+        />
       </ScrollView>
     </View>
   );
@@ -26,5 +37,17 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
     justifyContent: "center",
+    gap: 12,
+  },
+  refLabel: {
+    fontSize: 17,
+    fontWeight: "600",
+    color: "#1C1C1E",
+    textAlign: "center",
+  },
+  hintLabel: {
+    fontSize: 14,
+    color: "#8E8E93",
+    textAlign: "center",
   },
 });

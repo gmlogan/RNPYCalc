@@ -10,6 +10,7 @@ import {
   NativeScrollEvent,
 } from "react-native";
 import { SymbolView } from "expo-symbols";
+import { type TimeValue } from "../utils/time";
 
 const ITEM_HEIGHT = 52;
 const VISIBLE = 3;
@@ -142,12 +143,6 @@ function DirectField({ value, max, onChange }: FieldProps) {
 }
 
 // ─── TimeEntry ────────────────────────────────────────────────────────────────
-
-export interface TimeValue {
-  hours: number;
-  minutes: number;
-  seconds: number;
-}
 
 interface Props {
   defaultValue?: TimeValue;

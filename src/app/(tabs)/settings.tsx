@@ -10,12 +10,19 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SymbolView } from "expo-symbols";
 import PageHeader from "../../components/PageHeader";
 import { type Boat, useBoats } from "../../store/BoatsContext";
 
 // ─── Segmented control ────────────────────────────────────────────────────────
 
-type Mode = "favourites" | "edit";
+type Mode = "favourites" | "edit" | "reference";
+
+const SEGMENTS: { key: Mode; label: string }[] = [
+  { key: "favourites", label: "Favourites" },
+  { key: "edit",       label: "Edit PY" },
+  { key: "reference",  label: "Reference" },
+];
 
 function SegmentedControl({
   mode,
@@ -26,15 +33,15 @@ function SegmentedControl({
 }) {
   return (
     <View style={seg.wrap}>
-      {(["favourites", "edit"] as Mode[]).map((m) => (
+      {SEGMENTS.map(({ key, label }) => (
         <TouchableOpacity
-          key={m}
-          style={[seg.btn, mode === m && seg.active]}
-          onPress={() => onChange(m)}
+          key={key}
+          style={[seg.btn, mode === key && seg.active]}
+          onPress={() => onChange(key)}
           activeOpacity={0.7}
         >
-          <Text style={[seg.label, mode === m && seg.labelActive]}>
-            {m === "favourites" ? "Favourites" : "Edit PY"}
+          <Text style={[seg.label, mode === key && seg.labelActive]}>
+            {label}
           </Text>
         </TouchableOpacity>
       ))}
@@ -47,9 +54,7 @@ function SegmentedControl({
 function FavRow({ boat, onToggle }: { boat: Boat; onToggle: () => void }) {
   return (
     <View style={row.wrap}>
-      <Text style={row.name} numberOfLines={1}>
-        {boat.name}
-      </Text>
+      <Text style={row.name} numberOfLines={1}>{boat.name}</Text>
       <Text style={row.py}>{boat.py}</Text>
       <Switch
         value={boat.visible}
@@ -62,13 +67,7 @@ function FavRow({ boat, onToggle }: { boat: Boat; onToggle: () => void }) {
 
 // ─── Edit PY row ──────────────────────────────────────────────────────────────
 
-function EditRow({
-  boat,
-  onUpdate,
-}: {
-  boat: Boat;
-  onUpdate: (py: number) => void;
-}) {
+function EditRow({ boat, onUpdate }: { boat: Boat; onUpdate: (py: number) => void }) {
   const [draft, setDraft] = useState<string | null>(null);
 
   const commit = (text: string) => {
@@ -79,9 +78,7 @@ function EditRow({
 
   return (
     <View style={row.wrap}>
-      <Text style={row.name} numberOfLines={1}>
-        {boat.name}
-      </Text>
+      <Text style={row.name} numberOfLines={1}>{boat.name}</Text>
       <TextInput
         style={row.pyInput}
         value={draft ?? String(boat.py)}
@@ -98,11 +95,46 @@ function EditRow({
   );
 }
 
+// ─── Reference row ────────────────────────────────────────────────────────────
+
+function RefRow({
+  boat,
+  selected,
+  onSelect,
+}: {
+  boat: Boat;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <TouchableOpacity
+      style={[row.wrap, selected && row.refSelected]}
+      onPress={onSelect}
+      activeOpacity={0.6}
+    >
+      <Text style={[row.name, selected && row.refNameSelected]} numberOfLines={1}>
+        {boat.name}
+      </Text>
+      <Text style={row.py}>{boat.py}</Text>
+      {selected && (
+        <SymbolView
+          name="checkmark.circle.fill"
+          tintColor="#007AFF"
+          style={row.check}
+          resizeMode="scaleAspectFit"
+        />
+      )}
+      {!selected && <View style={row.check} />}
+    </TouchableOpacity>
+  );
+}
+
 // ─── Settings screen ──────────────────────────────────────────────────────────
 
 export default function SettingsScreen() {
   const [mode, setMode] = useState<Mode>("favourites");
-  const { boats, toggleVisibility, reset, updatePY } = useBoats();
+  const { boats, toggleVisibility, reset, updatePY, referenceBoat, setReferenceBoat } =
+    useBoats();
 
   const handleReset = () => {
     Alert.alert(
@@ -124,10 +156,18 @@ export default function SettingsScreen() {
         <SegmentedControl mode={mode} onChange={setMode} />
         {mode === "favourites" && (
           <TouchableOpacity style={styles.resetBtn} onPress={handleReset}>
-            <Text style={styles.resetLabel}>Reset All</Text>
+            <Text style={styles.resetLabel}>Reset</Text>
           </TouchableOpacity>
         )}
       </View>
+
+      {mode === "reference" && referenceBoat && (
+        <View style={styles.refBanner}>
+          <Text style={styles.refBannerText}>
+            Reference: <Text style={styles.refBannerName}>{referenceBoat}</Text>
+          </Text>
+        </View>
+      )}
 
       <FlatList
         data={boats}
@@ -136,13 +176,19 @@ export default function SettingsScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.listContent}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
-        renderItem={({ item }) =>
-          mode === "favourites" ? (
-            <FavRow boat={item} onToggle={() => toggleVisibility(item.name)} />
-          ) : (
-            <EditRow boat={item} onUpdate={(py) => updatePY(item.name, py)} />
-          )
-        }
+        renderItem={({ item }) => {
+          if (mode === "favourites")
+            return <FavRow boat={item} onToggle={() => toggleVisibility(item.name)} />;
+          if (mode === "edit")
+            return <EditRow boat={item} onUpdate={(py) => updatePY(item.name, py)} />;
+          return (
+            <RefRow
+              boat={item}
+              selected={referenceBoat === item.name}
+              onSelect={() => setReferenceBoat(item.name)}
+            />
+          );
+        }}
       />
     </View>
   );
@@ -173,7 +219,7 @@ const seg = StyleSheet.create({
     elevation: 2,
   },
   label: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "500",
     color: "#6C6C70",
   },
@@ -191,11 +237,18 @@ const row = StyleSheet.create({
     paddingVertical: 12,
     backgroundColor: "#fff",
   },
+  refSelected: {
+    backgroundColor: "rgba(0,122,255,0.06)",
+  },
   name: {
     flex: 1,
     fontSize: 15,
     color: "#1C1C1E",
     marginRight: 12,
+  },
+  refNameSelected: {
+    fontWeight: "600",
+    color: "#007AFF",
   },
   py: {
     fontSize: 15,
@@ -215,6 +268,10 @@ const row = StyleSheet.create({
     fontWeight: "600",
     fontVariant: ["tabular-nums"],
     color: "#1C1C1E",
+  },
+  check: {
+    width: 22,
+    height: 22,
   },
 });
 
@@ -240,6 +297,22 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
     color: "#fff",
+  },
+  refBanner: {
+    marginHorizontal: 16,
+    marginBottom: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: "rgba(0,122,255,0.08)",
+    borderRadius: 10,
+  },
+  refBannerText: {
+    fontSize: 14,
+    color: "#3C3C43",
+  },
+  refBannerName: {
+    fontWeight: "700",
+    color: "#007AFF",
   },
   separator: {
     height: StyleSheet.hairlineWidth,
